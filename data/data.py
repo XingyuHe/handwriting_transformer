@@ -11,7 +11,7 @@ from params import *
 
 class WriterDataReader(object):
 
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, wid_idx):
         data_cols = ['x', 'x_len', 'c', 'c_len', 'w_id']
         data = []
 
@@ -28,7 +28,7 @@ class WriterDataReader(object):
         for idx, wid in enumerate(data[-1].tolist()):
             self.widToIdx[wid].append(idx)
 
-        self.index = torch.tensor(self.widToIdx[wid]).to(DEVICE)
+        self.index = torch.tensor(self.widToIdx[data[-1].tolist()[wid_idx]]).to(DEVICE)
         data = [
             torch.index_select(data[0], 0, self.index),
             torch.index_select(data[1], 0, self.index),
@@ -88,11 +88,11 @@ class WriterDataReader(object):
             allow_smaller_final_batch=(mode == 'test')
         )
         for batch in gen:
-            # batch['x_len'] = batch['x_len'] - 1
+            batch['x_len'] = batch['x_len'] - 1
             max_x_len = torch.max(batch['x_len'])
             max_c_len = torch.max(batch['c_len'])
-            # batch['y'] = batch['x'][:, 1:max_x_len + 1, :]
-            batch['x'] = batch['x'][:, :max_x_len, :]
+            batch['y'] = batch['x'][:, 1:max_x_len + 1, :D_STROKE]
+            batch['x'] = batch['x'][:, :max_x_len, :D_STROKE]
             batch['c'] = batch['c'][:, :max_c_len]
             yield batch
 
@@ -162,10 +162,10 @@ class DataReader(object):
             allow_smaller_final_batch=(mode == 'test')
         )
         for batch in gen:
-            # batch['x_len'] = batch['x_len'] - 1
+            batch['x_len'] = batch['x_len'] - 1
             max_x_len = torch.max(batch['x_len'])
             max_c_len = torch.max(batch['c_len'])
-            # batch['y'] = batch['x'][:, 1:max_x_len + 1, :]
-            batch['x'] = batch['x'][:, :max_x_len, :]
+            batch['y'] = batch['x'][:, 1:max_x_len + 1, :D_STROKE]
+            batch['x'] = batch['x'][:, :max_x_len, :D_STROKE]
             batch['c'] = batch['c'][:, :max_c_len]
             yield batch

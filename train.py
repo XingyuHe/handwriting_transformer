@@ -5,16 +5,27 @@ import time
 from tkinter import ANCHOR
 
 from data.data import *
-from models.model import TFHW
+from models.model import TFHW, TFHW_simple
 
 import torch
 
 from params import *
+from utils import *
 
 
 os.environ["WANDB_API_KEY"] = "5d251ce3efa3311b8bcbea9d51c3c54e9b4b4ac5"
 
 import wandb
+
+def train_loop(model, optimizer, batch):
+    optimizer.zero_grad()
+    output = model(batch)
+    mse_loss = model.loss_fn(output, batch)
+    loss = mse_loss
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), GRADIENT_THRESHOLD)
+    optimizer.step()
+    return loss
 
 def main():
     wandb.init(project="handwriting-transformers", entity="xh2513")
@@ -42,7 +53,7 @@ def main():
     else:
         if not os.path.isdir(MODELS_DIR):
             os.mkdir(MODELS_DIR)
-        model = TFHW()
+        model = TFHW_simple()
         torch.save(model, model_architecture_path)
 
     model.to(DEVICE)
@@ -50,70 +61,62 @@ def main():
         raise ValueError("model is not on cuda GPU")
 
     # set up data pipeline
-    data_reader = DataReader(PROCESED_DATA_DIR)
+    # data_reader = DataReader(PROCESED_DATA_DIR)
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=LR, betas=(0.0, 0.999), weight_decay=0, eps=1e-8
     )
 
 
+    data_reader = DataReader("data/processed")
+
     # training loop
-    for epoch in range(EPOCHS):
+    for epoch in range(EPOCHS + 1):
 
+        train_data = data_reader.train_batch_generator(BATCH_SIZE)
+        val_data = data_reader.test_batch_generator(BATCH_SIZE)
         start_time = time.time()
-        train_data = data_reader.train_batch_generator(batch_size=BATCH_SIZE)
-
         sample_cnt = 0
 
         wandb_log = {}
         wandb_log["train_loss"] = 0
-        wandb_log["train_mse_loss"] = 0
-        wandb_log["train_logit_loss"] = 0
 
 
         for batch in train_data:
-            print(batch["x"].shape)
-            optimizer.zero_grad()
-            output = model(batch)
-            mse_loss, logit_loss = model.loss_fn(output, batch['x'])
-            loss = mse_loss + logit_loss
-            loss.backward()
-            optimizer.step()
+            loss = train_loop(model, optimizer, batch)
 
             sample_cnt += BATCH_SIZE
-            print ('\t', {'CNT': sample_cnt,'LOSS': loss})
             wandb_log["train_loss"] += batch['x'].shape[0] * loss.item()
-            wandb_log["train_mse_loss"] += batch['x'].shape[0] * mse_loss.item()
-            wandb_log["train_logit_loss"] += batch['x'].shape[0] * logit_loss.item()
-            # single batch fitting
 
         with torch.no_grad():
             wandb_log["val_loss"] = 0
-            wandb_log["val_mse_loss"] = 0
-            wandb_log["val_logit_loss"] = 0
-            for batch in data_reader.val_batch_generator(batch_size=1):
-                mse_loss, logit_loss = model.loss_fn(model(batch), batch['x'])
-                loss = mse_loss + logit_loss
-                wandb_log["val_loss"] += loss.item()
-                wandb_log["val_mse_loss"] += mse_loss.item()
-                wandb_log["val_logit_loss"] += logit_loss.item()
+            for batch in val_data:
+
+                with torch.no_grad():
+                    prediction = model(batch)
+                    loss = model.loss_fn(prediction, batch)
+                    wandb_log["val_loss"] += loss.item()
 
         wandb_log["train_loss"] = wandb_log["train_loss"]/data_reader.get_train_len()
-        wandb_log["train_mse_loss"] = wandb_log["train_mse_loss"]/data_reader.get_train_len()
-        wandb_log["train_logit_loss"] = wandb_log["train_logit_loss"]/data_reader.get_train_len()
-
         wandb_log["val_loss"] = wandb_log["val_loss"]/data_reader.get_val_len()
-        wandb_log["val_mse_loss"] = wandb_log["val_mse_loss"]/data_reader.get_val_len()
-        wandb_log["val_logit_loss"] = wandb_log["val_logit_loss"]/data_reader.get_val_len()
 
         wandb_log["epoch"] = epoch
         wandb_log['timeperepoch'] = time.time() - start_time
 
+        print (wandb_log)
         wandb.log(wandb_log)
 
-        print (wandb_log)
+        if epoch % SAVE_MODEL == 0:
+            test_words = "hello"
+            test_batch = {"c": torch.tensor([alpha_to_num[c] for c in test_words]).unsqueeze(0).to(DEVICE), "c_len": torch.tensor([len(test_words)]).to(DEVICE)}
 
-        if epoch % SAVE_MODEL == 0: torch.save(model.state_dict(), model_state_dict_path)
+
+            torch.save(model.state_dict(), model_state_dict_path)
+            out = predict_no_guidance(model, test_batch)
+            img_path = os.path.join(MODELS_DIR, "test_img_epoch-{}.jpg".format(epoch))
+            draw(out, img_path)
+            wandb.log({"test_img_epoch-{}".format(epoch): wandb.Image(img_path)})
+
         if epoch % SAVE_MODEL_HISTORY == 0: torch.save(model.state_dict(), model_state_dict_epoch_path(epoch))
 
 

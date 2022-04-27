@@ -38,3 +38,13 @@ People's suggestions:
 1. fit a single batch
 2. gradient clipping
 3. use non continuous variables
+
+1. Try without teacher forcing
+2. use seq to seq first for translation
+
+1. try learning over shorter sequences
+
+
+1. use the pytorch-handwriting-synthesis ipynb and
+     1. get rid of relu
+     2. use sequential multi-headed attention instead of parallele
