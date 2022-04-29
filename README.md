@@ -11,40 +11,7 @@
 ## Data
 1. Num of instance: 11615
 2. Num of writers: 198
+<object data="advanced_deep_learning_final_project.pdf" type="application/pdf" width="100%">
+</object>
+<embed src="advanced_deep_learning_final_project.pdf" type="application/pdf">
 
-
-## TODO
-1. change the loss function to be the mixture model
-2. add noise and train
-3. train with individual writer
-4. decoding
-5. add SOS and EOS to stroke sequence: current the end of sequence is [0,0,1] and it is not included
-     1. <SOS> marks the start of a stroke
-     2. <EOS> marks the end of a stroke
-     3. <EOC> ends of character sequence
-     4. <SOC> starts of character sequence
-6. What is the value of the stroke when the pen is lifted?
-7. At training time, set [0, 0, 1] to be the starting token. Add a end of stroke token to the end
-8. At prediction time, the variable for pen lift should be 0 or 1
-9. Does transformer starts training given the first token?
-
-
-Diagnosis:
-1. The prediction on stroke sequence is very wrong
-     1. Either use absolute position of the stroke
-     2. Incorporate conditioal depenendece when the pen is lifted up
-
-People's suggestions:
-1. fit a single batch
-2. gradient clipping
-3. use non continuous variables
-
-1. Try without teacher forcing
-2. use seq to seq first for translation
-
-1. try learning over shorter sequences
-
-
-1. use the pytorch-handwriting-synthesis ipynb and
-     1. get rid of relu
-     2. use sequential multi-headed attention instead of parallele
