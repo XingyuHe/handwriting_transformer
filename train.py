@@ -5,7 +5,7 @@ import time
 from tkinter import ANCHOR
 
 from data.data import *
-from models.model import TFHW, TFHW_simple
+from models.model import *
 
 import torch
 
@@ -19,8 +19,9 @@ import wandb
 
 def train_loop(model, optimizer, batch):
     optimizer.zero_grad()
-    output = model(batch)
-    mse_loss = model.loss_fn(output, batch)
+    es, pis, mu1s, mu2s, sigma1s, sigma2s, rhos  = model(batch)
+    Pr = model.gaussianMixture(batch['y'], pis, mu1s, mu2s, sigma1s, sigma2s, rhos)
+    mse_loss = model.loss_fn(Pr, es)
     loss = mse_loss
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.parameters(), GRADIENT_THRESHOLD)
@@ -45,6 +46,13 @@ def main():
     # set up model directory && instantiate the model
     model = None
 
+    print("Experiment name: ", EXP_NAME)
+
+    print("========================== params.py ==========================")
+    with open('params.py', 'r') as f:
+        print(f.read())
+    print("===============================================================")
+
     if os.path.isdir(MODELS_DIR) and RESUME:
         model = torch.load(model_architecture_path)
         if os.path.isfile(model_state_dict_path):
@@ -53,7 +61,7 @@ def main():
     else:
         if not os.path.isdir(MODELS_DIR):
             os.mkdir(MODELS_DIR)
-        model = TFHW_simple()
+        model = LSTM_HW()
         torch.save(model, model_architecture_path)
 
     model.to(DEVICE)
@@ -93,8 +101,9 @@ def main():
             for batch in val_data:
 
                 with torch.no_grad():
-                    prediction = model(batch)
-                    loss = model.loss_fn(prediction, batch)
+                    es, pis, mu1s, mu2s, sigma1s, sigma2s, rhos  = model(batch)
+                    Pr = model.gaussianMixture(batch['y'], pis, mu1s, mu2s, sigma1s, sigma2s, rhos)
+                    mse_loss = model.loss_fn(Pr, es)
                     wandb_log["val_loss"] += loss.item()
 
         wandb_log["train_loss"] = wandb_log["train_loss"]/data_reader.get_train_len()
@@ -112,7 +121,7 @@ def main():
 
 
             torch.save(model.state_dict(), model_state_dict_path)
-            out = predict_no_guidance(model, test_batch)
+            out = model.generate_sequence()
             img_path = os.path.join(MODELS_DIR, "test_img_epoch-{}.jpg".format(epoch))
             draw(out, img_path)
             wandb.log({"test_img_epoch-{}".format(epoch): wandb.Image(img_path)})
