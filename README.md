@@ -8,10 +8,4 @@
      `ls *.gz |xargs -n1 tar -xzf`
 3. Run `python prepare_data.py` and the processed data will be in `data/processed`
 
-## Data
-1. Num of instance: 11615
-2. Num of writers: 198
-<object data="advanced_deep_learning_final_project.pdf" type="application/pdf" width="100%">
-</object>
-<embed src="advanced_deep_learning_final_project.pdf" type="application/pdf">
-
+![Read Paper Here](advanced_deep_learning_final_project.pdf "")
