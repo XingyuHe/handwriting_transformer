@@ -9,3 +9,5 @@
 3. Run `python prepare_data.py` and the processed data will be in `data/processed`
 
 ![Read Paper Here](advanced_deep_learning_final_project.pdf "")
+
+[Watch Presentation Video Here ](https://youtu.be/uFMqWtsT9ls)
